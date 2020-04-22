@@ -1,0 +1,348 @@
+#+STARTUP: showeverything
+#+TITLE: Emacs use-package 中文文档
+
+- 目标：use-package 是一个很好的 Emacs 配置隔离工具，符合规则书写配置可实现延迟加载，提升启动速度。对于我这样的 lisp 小白来说，是福音。
+- 翻译源：https://github.com/jwiegley/use-package
+- 更新方式：不定期更新
+- 更新时间：2020-04-22 14:58:11
+
+---------------------
+
+=use-package= 宏允许你以性能导向、优雅、整洁的方式隔离你的 =.emacs= 配置文件。我创建它是因为我在 Emacs 中使用了 80 多个 package，管理起来非常困难。
+有了 use-package 之后，我的总加载时间约为 2 秒，而没有功能上的损失。
+
+*注意：* =use-package= *不是* 一个包管理工具。尽管 =use-package= 的确有与包管理工具交互的（很有用）功能，但它的主要目的是配置和加载程序包。
+
+升级到 2.x 的用户注意事项在底部。
+
+* Table Of Content :TOC:
+- [[#安装-use-package][安装 use-package]]
+- [[#入门][入门]]
+- [[#键绑定][键绑定]]
+  - [[#绑定到键映射keymaps][绑定到键映射（keymaps）]]
+  - [[#在本地键映射中绑定][在本地键映射中绑定]]
+- [[#modes-和-interpreters][Modes 和 interpreters]]
+- [[#magic-handlers][Magic Handlers]]
+- [[#hooks][Hooks]]
+- [[#包定制化][包定制化]]
+  - [[#自定义变量][自定义变量]]
+  - [[#自定义-faces][自定义 faces]]
+- [[#延迟加载注意事项][延迟加载注意事项]]
+- [[#有关包加载的信息][有关包加载的信息]]
+- [[#条件加载][条件加载]]
+- [[#字节编译的-emacs][字节编译的 .emacs]]
+- [[#扩展-load-path][扩展 load-path]]
+- [[#在包扩展中捕获错误][在包扩展中捕获错误]]
+- [[#diminishing-和-delighting-minor-modes][diminishing 和 delighting minor modes]]
+- [[#包安装][包安装]]
+- [[#收集统计][收集统计]]
+- [[#关键字扩展][关键字扩展]]
+- [[#一些计时结果][一些计时结果]]
+- [[#升级到-2x][升级到 2.x]]
+
+* 安装 use-package
+
+从 [[https://github.com/jwiegley/use-package][这个]] Github 仓库中 clone 或者从 [[https://melpa.org/][melpa]] 安装（推荐）。
+
+* 入门
+
+=use-package= 最简单的声明方式：
+
+#+begin_src emacs-lisp
+  ;; This is only needed once, near the top of the file
+  (eval-when-compile
+	;; Following line is not needed if use-package.el is in ~/.emacs.d
+	(add-to-list 'load-path "<path where use-package is installed>")
+	(require 'use-package))
+
+  (use-package foo)
+#+end_src
+
+这会加载 =foo= 包，但是只有 =foo= 在你的系统中可用的时候。如果没有的话，会打印警告到 =*Message*= buffer。
+
+使用 =:init= 关键字在包加载之前执行代码。它接受一个或者多个形式（forms），直到下一个关键字出现：
+
+#+begin_src elisp
+  (use-package foo
+	:init
+	(setq foo-variable t))
+#+end_src
+
+类似， =:config= 可以在包加载之后执行代码。如果是延迟加载的（请参阅下面的有关自动加载的更多信息），config 中的代码会延迟到自动加载发生之后：
+
+#+begin_src elisp
+  (use-package foo
+	:init
+	(setq foo-variable t)
+	:config
+	(foo-mode 1))
+#+end_src
+
+和你想的一样，你可以使用 =:init= 和 =:config= 一起使用。
+
+#+begin_src elisp
+  (use-package color-moccur
+	:commands (isearch-moccur isearch-all)
+	:bind (("M-s O" . moccur)
+		   :map isearch-mode-map
+		   ("M-o" . isearch-moccur)
+		   ("M-O" . isearch-moccur-all))
+	:init
+	(setq isearch-lazy-highlight t)
+	:config
+	(use-package moccur-edit))
+#+end_src
+
+在这种情况下，我想从 =color-moccur.el= 中自动加载 =isearch-moccur= 和 =isearch-all= 命令，然后进行全局级别和 =isearch-mode-map= 内部绑定（查看下一小结）。
+当实际加载包时（使用了这些命令之一）， =moccur-edit= 也会被加载，以允许编辑 =moccur= buffer。
+
+* 键绑定
+
+加载模块通常要做的另外一件事是给模块中主要的命令绑定快捷键：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:bind ("C-." . ace-jump-mode))
+#+end_src
+
+它做了两件事情：首先，它为 =ace-jump-mode= 命令创建了自动加载（直到你使用它才会被加载 =ace-jump-mode= ）；第二，它绑定了 =C-.= 到 =ace-jump-mode= 命令上。
+加载之后，你可以使用 =M-x describe-personal-keybindings= 来查看你在整个 =.emacs= 中绑定的快捷键。
+
+实现相同效果的另外一种（更精确）方法：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:commands ace-jump-mode
+	:init
+	(bind-key "C-." 'ace-jump-mode))
+#+end_src
+
+当你使用 =:commands= 关键字时，它会给这些命令创建自动加载，并延迟模块加载直到使用它们为止。因为 =:init= 总是会运行 -- 即便 =ace-jump-mode= 可能不在你的系统上
+-- 切记 =:init= 中的代码要保证都可以运行成功。
+
+=:bind= 关键字可以接受一个元素，也可以接受一个列表：
+
+#+begin_src elisp
+  (use-package hi-lock
+	:bind (("M-o l" . highlight-lines-matching-regexp)
+		   ("M-o r" . highlight-regexp)
+		   ("M-o w" . highlight-phrase)))
+#+end_src
+
+=:commands= 通常也支持 symbols 和 symbols 列表。
+
+*注意：* 命令内部的字符串，特殊的键比如 =tab= 或者 =F1=-=Fn= 必须要写在尖括号里面，比如说： ="C-<up>"= 。独立的特殊键（和某些组合）可以写在方括号里中，
+比如： 用 =[tab]= 代替 =<tab>= 。键盘的绑定语法类似于 "kbd" 语法，从 https://www.gnu.org/software/emacs/manual/html_node/emacs/Init-Rebinding.html 获取更多信息。
+
+举例：
+
+#+begin_src elisp
+  (use-package helm
+	:bind (("M-x" . helm-M-x)
+		   ("M-<f5>" . helm-find-files)
+		   ([f10] . helm-buffers-list)
+		   ([S-f10] . helm-recentf)))
+#+end_src
+
+此外，使用 =:bind= 和 =bind-key= 重新映射命令可以按照预期工作，因为绑定是向量（vector）时，它直接传递给 =define-key= 。
+所以下面的例子将重新绑定 =M-q= （原先是 =fill-paragraph= ）到 =unfill-toggle= 。
+
+#+begin_src elisp
+  (use-package unfill
+	:bind ([remap fill-paragraph] . unfill-toggle))
+#+end_src
+
+** 绑定到键映射（keymaps）
+
+通常， =:bind= 期望命令是将从给定的包中自动加载的函数。然而，有些命令实际上是键盘映射，直接操作不起作用，因为键盘映射不是一个函数，而且无法使用 Emacs 的
+=autoload= 机制。
+
+为了处理这种情况， =use-package= 提供了一个 =:bind= 特殊的变体叫做 =:bind-keymap= 。唯一的区别是由 =:bind-keymap= 包括的「命令」必须是包中定义的键映射，
+而不是命令函数。它的处理方式是生成自定义代码来加载包含键盘映射的包，然后在你执行按键的时候首次加载，进而将键重新解释为前缀键。
+
+比如：
+
+#+begin_src elisp
+  (use-package projectile
+	:bind-keymap
+	("C-c p" . projectile-command-map))
+#+end_src
+
+** 在本地键映射中绑定
+
+与绑定到键映射不同，它绑定本地键映射的中的一个键，而且只有在包已经被加载之后才存在。 =use-package= 通过 =:map= 修饰符来支持它，将本地的键映射绑定到：
+
+#+begin_src elisp
+  (use-package helm
+	:bind (:map helm-command-map
+				("C-c h" . helm-execute-persistent-action)))
+#+end_src
+
+该语句会等到 =helm= 被加载的时候，然后绑定 =C-c h= 到 Helm 的本地键映射中的  =helm-execute-persistent-action= ， =helm-mode-map= 。
+
+=:map= 可以使用多次，在第一次使用 =:map= 之前的任何绑定都会认为是全局绑定。
+
+#+begin_src elisp
+  (use-package term
+	:bind (("C-c t" . term)
+		   :map term-mode-map
+		   ("M-p" . term-send-up)
+		   ("M-n" . term-send-down)
+		   :map term-raw-map
+		   ("M-o" . other-window)
+		   ("M-p" . term-send-up)
+		   ("M-n" . term-send-down)))
+#+end_src
+
+* Modes 和 interpreters
+
+
+类似 =:bind= ，你可以使用 =:mode= 和 =:interpreter= 建立与 =auto-mode-alist= 和 =interpreter-mode-alist= 中的变量内部延迟绑定。
+每个关键字的说明符都是可以元素，列表，字符串或者正则表达式。
+
+#+begin_src elisp
+  (use-package ruby-mode
+	:mode "\\.rb\\'"
+	:interpreter "ruby")
+
+  ;; The package is "python" but the mode is "python-mode":
+  (use-package python
+	:mode ("\\.py\\'" . python-mode)
+	:interpreter ("python" . python-mode))
+#+end_src
+
+如果你没有设置 =:commands=, =:bind=, =:bind*=, =:bind-keymap=, =:bind-keymap*=, =:mode=, =:interpreter= 或者 =:hook= （这些都实现了 =:defer= ；
+查看 =use-package= 的 docstring 获取每个文档的简要说明），你仍旧可以通过 =:defer= 关键字实现延迟加载：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:defer t
+	:init
+	(autoload 'ace-jump-mode "ace-jump-mode" nil t)
+	(bind-key "C-." 'ace-jump-mode))
+#+end_src
+
+与下面这样效果完全相同：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:bind ("C-." . ace-jump-mode))
+#+end_src
+
+* Magic Handlers
+
+与 =:mode= 和 =:interpreter= 类似，你也可以使用 =:magic= 和 =:magic-fallback= 来实现如果文件的开头和给定的正则表达式匹配，则引发某些功能运行。
+两者之间的区别在于 =:magic-fallback= 比 =:mode= 的优先级低。比如：
+
+#+begin_src elisp
+  (use-package pdf-tools
+	:load-path "site-lisp/pdf-tools/lisp"
+	:magic ("%PDF" . pdf-view-mode)
+	:config
+	(pdf-tools-install :no-query))
+#+end_src
+
+
+这会为 =pdf-view-mode= 注册一个自动加载命令，延迟加载 =pdf-tools= 。如果 buffer 开头与字符串 ="%PDF"= 匹配，运行 =pdf-view-mode= 。
+
+* Hooks
+
+=:hook= 关键字允许将函数添加到包 hooks 上。因此，下面三种方式都是等价的：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:hook prog-mode)
+
+  (use-package ace-jump-mode
+	:hook (prog-mode . ace-jump-mode))
+
+  (use-package ace-jump-mode
+	:commands ace-jump-mode
+	:init
+	(add-hook 'prog-mode-hook #'ace-jump-mode))
+#+end_src
+
+同样，应用到多个 hook 时，以下的内容也是等价的：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:hook (prog-mode text-mode))
+
+  (use-package ace-jump-mode
+	:hook ((prog-mode text-mode) . ace-jump-mode))
+
+  (use-package ace-jump-mode
+	:hook ((prog-mode . ace-jump-mode)
+		   (text-mode . ace-jump-mode)))
+
+  (use-package ace-jump-mode
+	:commands ace-jump-mode
+	:init
+	(add-hook 'prog-mode-hook #'ace-jump-mode)
+	(add-hook 'text-mode-hook #'ace-jump-mode))
+#+end_src
+
+当使用 =:hook= 时要忽略 "-hook" 后缀，默认情况会自动添加上。比如下面的代码不会生效，因为它实际上会扩展成 =prog-mode-hook-hook= 并不存在：
+
+#+begin_src elisp
+  ;; DOES NOT WORK
+  (use-package ace-jump-mode
+	:hook (prog-mode-hook . ace-jump-mode))
+#+end_src
+
+如果你不喜欢这种行为的话，设置 =use-package-hook-name-suffix= 成 nil。默认情况下，它的值是 "-hook"。
+
+使用 =:hook= 和 =:bind=, =:mode=, =:interpreter= 等等。被 hook 的隐式读取为 =:commands= （意味着它们将为该模块建立交互式 =autoload= 定义，
+如果尚未定义函数的话），因为 =:defer t= 也被 =:hook= 隐含了。
+
+* 包定制化
+
+** 自定义变量
+
+=:custom= 关键字允许包自定义变量。
+
+#+begin_src elisp
+  (use-package comint
+	:custom
+	(comint-buffer-maximum-size 20000 "Increase comint buffer size.")
+	(comint-prompt-read-only t "Make the prompt read only."))
+#+end_src
+
+其中的文档字符串不是必需的。
+
+*注意：* 这些适用于想要在 use-packages 声明的地方自定义包的人。功能上，相比与在 =:config= 块中使用 =setq= 的优势在于：在分配值是，使用 custom 可能会执行代码。
+如果你使用 =M-x customize-option= 并保存在设置文件中，你可能不希望使用这个选项。
+
+** 自定义 faces
+
+=custom-face= 关键字允许自定义包的 faces。
+
+#+begin_src elisp
+  (use-package eruby-mode
+	:custom-face
+	(eruby-standard-face ((t (:slant italic)))))
+#+end_src
+
+* TODO 延迟加载注意事项
+
+* TODO 有关包加载的信息
+
+* TODO 条件加载
+
+* TODO 字节编译的 .emacs
+
+* TODO 扩展 load-path
+
+* TODO 在包扩展中捕获错误
+
+* TODO diminishing 和 delighting minor modes
+
+* TODO 包安装
+
+* TODO 收集统计
+
+* TODO 关键字扩展
+
+* TODO 一些计时结果
+
+* TODO 升级到 2.x
