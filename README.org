@@ -4,7 +4,7 @@
 - 目标：use-package 是一个很好的 Emacs 配置隔离工具，符合规则书写配置可实现延迟加载，提升启动速度。对于我这样的 lisp 小白来说，是福音。
 - 翻译源：https://github.com/jwiegley/use-package
 - 更新方式：不定期更新
-- 更新时间：2020-04-22 14:58:11
+- 更新时间：2020-04-23 16:37
 
 ---------------------
 
@@ -30,15 +30,28 @@
 - [[#延迟加载注意事项][延迟加载注意事项]]
 - [[#有关包加载的信息][有关包加载的信息]]
 - [[#条件加载][条件加载]]
-- [[#字节编译的-emacs][字节编译的 .emacs]]
+  - [[#preface-之前的条件加载][=:preface= 之前的条件加载]]
+  - [[#按顺序in-sequence加载包][按顺序（in sequence）加载包]]
+  - [[#如果依赖项缺失则阻止加载][如果依赖项缺失，则阻止加载]]
+- [[#字节编译byte-compiling你的-emacs][字节编译（Byte-compiling）你的 .emacs]]
+  - [[#组织包在编译时compile-time加载][组织包在编译时（compile-time）加载]]
 - [[#扩展-load-path][扩展 load-path]]
 - [[#在包扩展中捕获错误][在包扩展中捕获错误]]
-- [[#diminishing-和-delighting-minor-modes][diminishing 和 delighting minor modes]]
+- [[#diminishing-和-delighting-次要模式minor-modes][diminishing 和 delighting 次要模式（minor modes）]]
 - [[#包安装][包安装]]
+  - [[#和其它包管理器一起使用][和其它包管理器一起使用]]
 - [[#收集统计][收集统计]]
 - [[#关键字扩展][关键字扩展]]
+  - [[#use-package-ensure-system-package][=(use-package-ensure-system-package)=]]
+  - [[#use-package-chords][=(use-package-chords)=]]
 - [[#一些计时结果][一些计时结果]]
 - [[#升级到-2x][升级到 2.x]]
+  - [[#init-语义现在是一致的][=:init= 语义现在是一致的]]
+  - [[#idle-被移除了][=:idle= 被移除了]]
+  - [[#defer-现在一个可选的数字参数][=:defer= 现在一个可选的数字参数]]
+  - [[#add-preface-occurring-before-everything-except-disabled][Add :preface, occurring before everything except :disabled]]
+  - [[#add-functions-for-declaring-functions-to-the-byte-compiler][Add :functions, for declaring functions to the byte-compiler]]
+  - [[#use-packageel-在运行时不在需要][use-package.el 在运行时不在需要]]
 
 * 安装 use-package
 
@@ -323,26 +336,532 @@
 	(eruby-standard-face ((t (:slant italic)))))
 #+end_src
 
-* TODO 延迟加载注意事项
+* 延迟加载注意事项
 
-* TODO 有关包加载的信息
+绝大多数情况下，你都不需要手动设置 =:defer t= 。当使用 =:bind= =:mode= 或者 =:interpreter= 都已经隐含了。通常，只有知道一些包会在某些情况下需要时间加载，
+你才需要指定 =:defer= ，因此，即使 =use-package= 没有为你创建任何自动加载，你也可以设置延迟加载。
 
-* TODO 条件加载
+你可以使用 =:demand= 关键字覆盖包的延迟，这种情况下，即便你使用了 =:bind= ， =:demand= 也会立即强制加载，并且不会为绑定键建立自动加载。
 
-* TODO 字节编译的 .emacs
+* 有关包加载的信息
 
-* TODO 扩展 load-path
+加载包的时候，如果将 =use-package-verbose= 设置为 =t=, 或者加载包的时间超过了 0.1 秒，那么你会在 =*Message*= buffer 中看到一个信息（来表明加载活动）。
+对于配置或者 =:config= 块执行时间超过 0.1 秒，也会出现相同的情况。通常情况，你应该保持 =:init= 尽可能的简单，而把更多的配置放到 =:config= 块中。
+这样，延迟加载可以让你的 Emacs 启动更快。
 
-* TODO 在包扩展中捕获错误
+另外，如果在包的初始化或者配置过程中出现了错误，不会阻止你的 Emacs 加载。相反，错误会被包捕获，然后报告给特殊的 =*Warning*= 弹出 buffer，以便你使用
+功能正常的 Emacs 中调试。
 
-* TODO diminishing 和 delighting minor modes
+* 条件加载
 
-* TODO 包安装
+你可以使用 =:if= 关键字来条件判断包模块的加载和初始化。
 
-* TODO 收集统计
+比如说，我只希望 =edit-server= 在我主要的，GUI Emacs，而不希望其它时候启动：
+
+#+begin_src elisp
+  (use-package edit-server
+	:if window-system
+	:init
+	(add-hook 'after-init-hook 'server-start t)
+	(add-hook 'after-init-hook 'edit-server-start t))
+#+end_src
+
+在另外一个例子中，我们可以有条件的加载一些东西：
+
+#+begin_src elisp
+  (use-package exec-path-from-shell
+	:if (memq window-system '(mac ns))
+	:ensure t
+	:config
+	(exec-path-from-shell-initialize))
+#+end_src
+
+=:disabled= 关键字可以关闭遇到问题的模块，或者对当前不使用的模块阻止加载。
+
+#+begin_src elisp
+  (use-package ess-site
+	:disabled
+	:commands R)
+#+end_src
+
+当字节编译（ =byte-compiling= ）你的 =.emacs= 文件，在声明中禁用（disabled）将从输出中完全省略，可以加快启动时间。
+
+*注意：* =:when= 是 =:if= 的别名，而且 =:unless foo= 等价于 =:if (not foo)= 。比如说，下面的 =:ensure= 也会在 Mac 系统中停止工作：
+
+#+begin_src elisp
+  (when (memq window-system '(mac ns))
+	(use-package exec-path-from-shell
+	  :ensure t
+	  :config
+	  (exec-path-from-shell-initialize)))
+#+end_src
+
+** =:preface= 之前的条件加载
+
+如果你需要对 use-package form 进行条件判断，确保它出现在 =:preface= 执行之前，简单的使用 =:when= form 即可。
+
+** 按顺序（in sequence）加载包
+
+有时需要在一个包加载完之后才会加载另外一个包，因为那个时候变量或者函数才在范围内。这种情况可以使用 =:after= 关键字来实现，它允许在满足确定条件之后然后再加载。
+比如：
+
+#+begin_src elisp
+  (use-package hydra
+	:load-path "site-lisp/hydra")
+
+  (use-package ivy
+	:load-path "site-lisp/swiper")
+
+  (use-package ivy-hydra
+	:after (ivy hydra))
+#+end_src
+
+这种情况下，所有的软件包都是按找出现的顺序加载的，因此 =:after= 的使用不是强制必要的。
+但是，使用了之后，上面的代码变的与顺序无关了，而对你 init 文件本身没有显式的依赖。
+
+默认情况下， =:after (foo bar)= 与 =:after (:all foo bar)= 相同，意味着给定的加载包必须要等到 =foo= 和 =bar= 全部加载之后。这是其它的可能情况：
+
+#+begin_src elisp
+  :after (foo bar)
+  :after (:all foo bar)
+  :after (:any foo bar)
+  :after (:all (:any foo bar) (:any baz quux))
+  :after (:any (:all foo bar) (:all baz quux))
+#+end_src
+
+当你使用嵌套的选择器时，比如 =(:any (:all foo bar) (:all baz quux))= ，意味着同时加载 =foo= 和 =bar= 或者 =baz= 和 =quux= 。
+
+*注意：* 如果你设置了 =use-package-always-defer= 为 =t= ，并且使用了 =:after= 关键字，那么你需要指定包的加载方式：比如，使用 =:bind= 。
+如果你没有使用注册自动加载的机制之一，比如 =:bind= 或者 =:hook= ，而且您的包管理器没有提供自动加载功能，如果没有添加 =:demand t= 到这些声明中，
+那么这些包可能永远不会被加载。
+
+** 如果依赖项缺失，则阻止加载
+
+虽然 =after= 关键字可以延迟加载直到依赖项加载，如果 =use-package= 声明的包不可用永远不要加载依赖包使用 =:requires= 会更简单一些。
+在这种情况下，foo 的「可用」表示的是 =(featurep 'foo)= 的值是非 nil 值。比如：
+
+#+begin_src elisp
+  (use-package abbrev
+	:requires foo)
+#+end_src
+
+等价于：
+
+#+begin_src elisp
+  (use-package abbrev
+	:if (featurep 'foo))
+#+end_src
+
+你可以指定依赖列表：
+
+#+begin_src elisp
+  (use-package abbrev
+	:requires (foo bar baz))
+#+end_src
+
+对于更复杂的逻辑，比如说 =:after= 支持的，只需要使用 =:if= 合适的 Lisp 表达式即可。
+
+* 字节编译（Byte-compiling）你的 .emacs
+
+=use-package= 的另一个特性是 =.emacs= 被字节编译时总加载它可以加载的每一个文件。这会有助于消除有关未知变量和函数的虚假警告。
+
+但是，有时候这样还不够。有些时候，出于字节编译的目的，使用 =:defines= 和 =:functions= 关键字仅用来引入虚拟变量和函数声明。
+
+#+begin_src elisp
+  (use-package texinfo
+	:defines texinfo-section-list
+	:commands texinfo-mode
+	:init
+	(add-to-list 'auto-mode-alist '("\\.texi$" . texinfo-mode)))
+#+end_src
+
+如果你想要函数缺失的警告静音（silence），你可使用 =:functions= ：
+
+#+begin_src elisp
+  (use-package ruby-mode
+	:mode "\\.rb\\'"
+	:interpreter "ruby"
+	:functions inf-ruby-keys
+	:config
+	(defun my-ruby-mode-hook ()
+	  (require 'inf-ruby)
+	  (inf-ruby-keys))
+
+	(add-hook 'ruby-mode-hook 'my-ruby-mode-hook))
+#+end_src
+
+** 组织包在编译时（compile-time）加载
+
+通常， =use-package= 在编译配置之前，在编译时加载每个包，确保必要的标识符在范围内，以满足字节编译器的要求。有时这样会引起问题，由于包可能有特殊的加载需求，
+你要使用 =use-pacakge= 的所有操作就是将配置添加到 =eval-after-load= hook。这种情况下，使用 =:no-require= 关键字：
+
+#+begin_src elisp
+  (use-package foo
+	:no-require t
+	:config
+	(message "This is evaluated when `foo' is loaded"))
+#+end_src
+
+* 扩展 load-path
+
+如果你想将目录添加到 =load-path= 进行加载，使用 =:load-path= 。参数是一个符号，一个函数，一个字符串或者一个字符串列表。如果是相对路径，
+会在 =user-package-directory= 中扩展：
+
+#+begin_src elisp
+  (use-package ess-site
+	:load-path "site-lisp/ess/lisp/"
+	:commands R)
+#+end_src
+
+*注意：* 当使用符号或者函数提供动态的路径列表时，你必须要将次定义告知字节编译器，以便在字节编译时可用。这是通过使用特殊形式的 =eval-and-compile= （
+与 =eval-when-compile= 相反）来完成的。进一步，这个值是在编译器期间确定下来的，为了避免在每次启动时再次查找相同的信息：
+
+#+begin_src elisp
+  (eval-and-compile
+	(defun ess-site-load-path ()
+	  (shell-command "find ~ -path ess/lisp")))
+
+  (use-package ess-site
+	:load-path (lambda () (list (ess-site-load-path)))
+	:commands R)
+#+end_src
+
+* 在包扩展中捕获错误
+
+默认情况下，如果 =use-package-expand-minimally= 是 nil（默认值），use-package 将尝试捕捉并报告在你的 init 文件中扩展使用包声明期间发生的错误。
+设置 =use-package-expand-minimally= 为 =t= 完全禁用此检查。
+
+可以使用 =:catch= 关键字来本地覆盖此行为，设置为 =t= 或者 =nil= ，在加载时启动或者禁用捕获错误。它也可以是带有两个参数的函数：遇到错误时正在处理的关键字，
+和错误对象（由 =condition-case= 生成）。比如：
+
+#+begin_src elisp
+  (use-package example
+	;; Note that errors are never trapped in the preface, since doing so would
+	;; hide definitions from the byte-compiler.
+	:preface (message "I'm here at byte-compile and load time.")
+	:init (message "I'm always here at startup")
+	:config
+	(message "I'm always here after the package is loaded")
+	(error "oops")
+	;; Don't try to (require 'example), this is just an example!
+	:no-require t
+	:catch (lambda (keyword err)
+			 (message (error-message-string err))))
+#+end_src
+
+执行结果：
+
+#+begin_src
+I’m here at byte-compile and load time.
+I’m always here at startup
+Configuring package example...
+I’m always here after the package is loaded
+oops
+#+end_src
+
+* diminishing 和 delighting 次要模式（minor modes）
+
+=use-package= 还提供了内置的 diminish 和 delight 功能支持 -- 如果你已经安装了它们的话。它们的目标是在你的 mode-line 中删除或者更改次要模式的字符串。
+
+[[https://github.com/myrjola/diminish.el][diminish]] 用 =:diminish= 关键字调用，可以使用次要模式标识符传递，符号和它替换字符串的 cons，或者只是一个替换字符串，这种情况下，次要模式的标识符被猜测为
+包名字加上 "-mode" ：
+
+#+begin_src elisp
+  (use-package abbrev
+	:diminish abbrev-mode
+	:config
+	(if (file-exists-p abbrev-file-name)
+		(quietly-read-abbrev-file)))
+#+end_src
+
+[[https://elpa.gnu.org/packages/delight.html][delight]] 用 =:delight= 关键字调用，传递了次要模式标识符，替换字符串或者引号包裹的 [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Mode-Line-Data.html][mode-line 数据]]（这种情况下，次要模式符号被认为是包名称末尾加上 "-mode"），
+这两个，或者两者的几个列表。如果没有提供任何参数，默认模式名字将完全被隐藏。
+
+#+begin_src elisp
+  ;; Don't show anything for rainbow-mode.
+  (use-package rainbow-mode
+	:delight)
+
+  ;; Don't show anything for auto-revert-mode, which doesn't match
+  ;; its package name.
+  (use-package autorevert
+	:delight auto-revert-mode)
+
+  ;; Remove the mode name for projectile-mode, but show the project name.
+  (use-package projectile
+	:delight '(:eval (concat " " (projectile-project-name))))
+
+  ;; Completely hide visual-line-mode and change auto-fill-mode to " AF".
+  (use-package emacs
+	:delight
+	(auto-fill-function " AF")
+	(visual-line-mode))
+#+end_src
+
+* 包安装
+
+你可以使用 =use-package= 通过 =package.el= 从 ELPA 加载包。如果你在多台计算机之间共享 =.emacs= ，这会非常有用；在你的 =.emacs= 中声明之后，相关的包会自动下载。
+=:ensure= 关键字会让包自动安装（如果系统上不存在的话）。
+
+#+begin_src elisp
+  (use-package magit
+	:ensure t)
+#+end_src
+
+如果你需要安装与 =use-package= 命名的包不同的包，可以这样指定：
+
+#+begin_src elisp
+  (use-package tex
+	:ensure auctex)
+#+end_src
+
+如果你希望此行为对所有的包都有效，打开 =use-package-always-ensure= ：
+
+#+begin_src elisp
+  (require 'use-package-ensure)
+  (setq use-package-always-ensure t)
+#+end_src
+
+*注意：* =:ensure= 在包不存在时会自动安装包，但它并不能保持最新。如果你希望你的包自动升级，一个选择是使用 [[https://github.com/rranelli/auto-package-update.el][auto-package-update]] ，类似：
+
+#+begin_src elisp
+  (use-package auto-package-update
+	:config
+	(setq auto-package-update-delete-old-versions t)
+	(setq auto-package-update-hide-results t)
+	(auto-package-update-maybe))
+#+end_src
+
+最后，在 Emacs 24.4 或者更高的版本上运行时，use-package 可以将包固定到特定的 archive，允许你混用和匹配来自不同 archive 的包。大部分场景都是从 =melpa-stable=
+和 =gnu= archive 中选择软件包，但是要使用来自 =melpa= 中的包，当你需要使用比 =stable= archives 可用版本更新的版本时，这也是一种使用场景。
+
+默认情况下 =package.el= 由于版本控制的原因 =(> evil-20141208.623 evil-1.0.9)= 相比 =melpa-stable= 更喜欢 =mepla= ，因此即使你想只有一个包来自 =melpa= ，
+你需要把所有非 =melpa= 的包都要从这个 archive 下载。如果这个让你感到烦恼，你可以设置 =use-package-always-pin= 设置为默认值。
+
+如果要手动保持包更新，而忽略上游更新，你可以将它固定为 =manual= ，只要没有该名称的存储库，就可以使用。
+
+如果你固定的 archive 没有出现在 =package-archives= 的配置列表中， =use-package= 会抛出一个错误（除了上面提到的 =:manual= ）：
+
+#+begin_src
+Archive 'foo' requested for package 'bar' is not available.
+#+end_src
+
+举例：
+
+#+begin_src elisp
+  (use-package company
+	:ensure t
+	:pin melpa-stable)
+
+  (use-package evil
+	:ensure t)
+  ;; no :pin needed, as package.el will choose the version in melpa
+
+  (use-package adaptive-wrap
+	:ensure t
+	;; as this package is available only in the gnu archive, this is
+	;; technically not needed, but it helps to highlight where it
+	;; comes from
+	:pin gnu)
+
+  (use-package org
+	:ensure t
+	;; ignore org-mode from upstream and use a manually installed version
+	:pin manual)
+#+end_src
+
+*注意：* =:pin= 参数对于 emacs 版本小于 24.4 无效。
+
+** 和其它包管理器一起使用
+
+通过覆盖 =use-package-ensure-function= 和/或者 =use-package-pre-ensure-function= ，其它的包管理器可以重写 =:ensure= 使用它们而不是 =package.el= 。
+目前，唯一执行此操作的包管理器是 [[https://github.com/raxod502/straight.el][straight.el]]。
+
+* 收集统计
+
+如果你想查看已经加载包数量，它们到达了什么初始化阶段，它们花了多少时间（大约），在加载 =use-package= 之后打开 =use-package-compute-statistics= （在
+任何使用 =use-package= forms 之前），然后运行命令 =M-x use-package-report= 查看结果。显示的 buffer 是一个列表，你可以在对应的列上使用 =S= 进行排序。
 
 * TODO 关键字扩展
 
-* TODO 一些计时结果
+从 2.0 版本开始， =use-package= 基于可扩展的框架，使得包的作者添加新的关键字或者修改现有关键字变的很轻松。
 
-* TODO 升级到 2.x
+现在，某些关键字扩展包含在 =use-package= 的发行版中，可以选择性安装。
+
+** =(use-package-ensure-system-package)=
+
+=:ensure-system-package=  允许你确保系统的二进制文件和你的包声明一起存在。
+
+首先，你希望保证 =exec-path= 能够识别你已经安装的二进制包的名称，[[https://github.com/purcell/exec-path-from-shell][exec-path-from-shell]] 是一个好的解决办法。
+
+在你 =use-package= 加载之后启用扩展：
+
+#+begin_src elisp
+  (use-package use-package-ensure-system-package
+	:ensure t)
+#+end_src
+
+下面是使用范例：
+
+#+begin_src elisp
+  (use-package rg
+	:ensure-system-package rg)
+#+end_src
+
+它会期望全局的二进制 =rg= 存在。如果不存在的话，它会使用你的系统包管理器（使用 system-packages）尝试异步安装同名的二进制。比如，macOS 用户可能会调用：
+=brew install rg= 。
+
+如果包名字和二进制名字不同，你可以用 =(binary . package-name)= 的格式，即：
+
+#+begin_src elisp
+  (use-package rg
+	:ensure-system-package
+	(rg . ripgrep))
+#+end_src
+
+在前面的 macOS 例子中，如果 =rg= 没找到的话，会调用： =brew install ripgrep= 。
+
+如果你想自定义安装命令怎么办？
+
+#+begin_src elisp
+  (use-package tern
+	:ensure-system-package (tern . "npm i -g tern"))
+#+end_src
+
+=:ensure-system-package= 也可以通过 =(async-shell-command)= 调用安装。
+
+你也可以安装传入一个列表：
+
+#+begin_src elisp
+  (use-package ruby-mode
+	:ensure-system-package
+	((rubocop     . "gem install rubocop")
+	 (ruby-lint   . "gem install ruby-lint")
+	 (ripper-tags . "gem install ripper-tags")
+	 (pry         . "gem install pry")))
+#+end_src
+
+最后，如果包依赖项不提供全局可执行文件，你可以通过类似以下的字符串来检查文件路径的存在确保包存在：
+
+#+begin_src elisp
+  (use-package dash-at-point
+	:if (eq system-type 'darwin)
+	:ensure-system-package
+	("/Applications/Dash.app" . "brew cask install dash"))
+#+end_src
+
+=:ensure-system-package= 会使用 =system-package-install= 来安装系统包，如果指定了自定义命令，将由 =async-shell-command= 执行。
+
+配置变量 =system-packages-package-manager= 和 =system-packages-use-sudo= 会很有用，但是不适用于自定义命令。自定义命令如果需要的话，需要在命令本身上加上 =sudo= 。
+
+** =(use-package-chords)=
+
+=:chords= 关键字允许你为 =use-paackage= 定义 =key-chord= 绑定，与 =:bind= 关键字类似。
+
+打开扩展：
+
+#+begin_src elisp
+  (use-package use-package-chords
+	:ensure t
+	:config (key-chord-mode 1))
+#+end_src
+
+然后你可以使用与 =:bind= 类似的定义方法来绑定：
+
+#+begin_src elisp
+  (use-package ace-jump-mode
+	:chords (("jj" . ace-jump-char-mode)
+			 ("jk" . ace-jump-word-mode)
+			 ("jl" . ace-jump-line-mode)))
+#+end_src
+
+*** TODO 如何创建扩展
+
+/这部分我不怎么关心.../
+
+* 一些计时结果
+
+在我的 iMac Retina 上，Emacs 24.4 的 "Mac port" 变种，大约配置了 218 个包（几乎所有的都是懒加载），加载了 0.57 秒。但是，除了第一次使用 Emacs 时（由于自动加载）
+，我没有损失任何功能。由于我对许多软件包使用了空闲加载，因此通常可以整体上减少延迟感知。
+
+在 Linux 上，相同的配置用了 0.32 秒。
+
+如果不用图形方式使用 Emacs，可以测试到绝对最小时间，通过以下命令完成：
+
+#+begin_src sh
+time emacs -l init.elc -batch --eval '(message "Hello, world!")'
+#+end_src
+
+在 Mac 上平均 0.36 秒，在 Linux 上 0.26 秒。
+
+* 升级到 2.x
+
+** =:init= 语义现在是一致的
+
+=:init= 的含义发生了变化：现在它 /总是/ 的包加载之前出现，无论 =:config= 推迟与否。这意味着可能需要将 =:init= 中的配置放到了 =:config= 中（在非延迟的情况下）。
+对于延迟的情况，行为和之前相同。
+
+也因为 =:init= 和 =:config= 现在意味着 "之前" 和 "之后"，所以 =:pre-= 和 =:post-= 关键字消失了，它们也不再被需要了。
+
+最后，即使存在包配置失败的情况，也尽力让你的 Emacs 启动。因此，在此更改之后，要检查你的 =*Message= buffer。最有可能的是，在几个例子中使用 =:init= ，但应该
+跟更多地方使用 =:config= 。
+
+** =:idle= 被移除了
+
+我现在要删除此功能，是因为它可能出现让人生厌的不一致，考虑以下定义：
+
+#+begin_src elisp
+  (use-package vkill
+	:commands vkill
+	:idle (some-important-configuration-here)
+	:bind ("C-x L" . vkill-and-helm-occur)
+	:init
+	(defun vkill-and-helm-occur ()
+	  (interactive)
+	  (vkill)
+	  (call-interactively #'helm-occur))
+
+	:config
+	(setq vkill-show-all-processes t))
+#+end_src
+
+如果我加载我的 Eamcs 然后等到空闲计数器触发，然后这是事件的顺序：
+
+#+begin_src
+:init :idle <load> :config
+#+end_src
+
+但是，如果我加载 Emacs 并立即输入 =C-x L= 而不等待空闲计数器触发，它的事件顺序时这样的：
+
+#+begin_src
+:init <load> :config :idle
+#+end_src
+
+用户可能在闲置状态下使用 =featurep= 来测试这种情况，但这是我想避免的。
+
+** =:defer= 现在一个可选的数字参数
+
+=:defer [N]= 会导致包加载 -- 如果还没有的话 -- 在 =N= 秒之后执行。
+
+#+begin_src elisp
+  (use-package back-button
+	:commands (back-button-mode)
+	:defer 2
+	:init
+	(setq back-button-show-toolbar-buttons nil)
+	:config
+	(back-button-mode 1))
+#+end_src
+
+** TODO Add :preface, occurring before everything except :disabled
+** TODO Add :functions, for declaring functions to the byte-compiler
+** use-package.el 在运行时不在需要
+
+也就是说你可以将以下内容放在 Emacs 的顶部，进一步减少加载时间：
+
+#+begin_src elisp
+  (eval-when-compile
+	(require 'use-package))
+  (require 'diminish)                ;; if you use :diminish
+  (require 'bind-key)                ;; if you use any :bind variant
+#+end_src
