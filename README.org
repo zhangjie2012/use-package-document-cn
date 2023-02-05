@@ -1,61 +1,62 @@
-#+STARTUP: showeverything
 #+TITLE: Emacs use-package 中文文档
+#+STARTUP: showall
+#+OPTIONS: ^:nil
 
 - 目标：use-package 是一个很好的 Emacs 配置隔离工具，符合规则书写配置可实现延迟加载，提升启动速度。对于我这样的 lisp 小白来说，是福音。
 - 翻译源：https://github.com/jwiegley/use-package
-- 更新方式：不定期更新
-- 更新时间：2020-04-23 16:37
+- 更新频率：use-package 自身更新很快，但是核心使用方式基本没变化，所以频率不重要。 *欢迎PR*
+- 更新记录：：
+  + <2023-02-05 Sun 19:12> 同步至当前最新 [[https://github.com/jwiegley/use-package/tree/77945e002f11440eae72d8730d3de218163d551e][77945e0]]
+  + <2020-04-23 Thu 16:37> 首次更新
 
----------------------
+------------------------------------------------------------------------------------------------------------------------
 
 =use-package= 宏允许你以性能导向、优雅、整洁的方式隔离你的 =.emacs= 配置文件。我创建它是因为我在 Emacs 中使用了 80 多个 package，管理起来非常困难。
 有了 use-package 之后，我的总加载时间约为 2 秒，而没有功能上的损失。
 
 *注意：* =use-package= *不是* 一个包管理工具。尽管 =use-package= 的确有与包管理工具交互的（很有用）功能，但它的主要目的是配置和加载程序包。
 
-升级到 2.x 的用户注意事项在底部。
-
-* Table Of Content :TOC:
+* Table Of Content                                                      :TOC:
 - [[#安装-use-package][安装 use-package]]
 - [[#入门][入门]]
-- [[#键绑定][键绑定]]
-  - [[#绑定到键映射keymaps][绑定到键映射（keymaps）]]
-  - [[#在本地键映射中绑定][在本地键映射中绑定]]
+- [[#快捷键绑定key-binding][快捷键绑定（Key-binding）]]
+  - [[#绑定快捷键到-keymaps][绑定快捷键到 keymaps]]
+  - [[#绑定到局部-keymaps][绑定到局部 keymaps]]
 - [[#modes-和-interpreters][Modes 和 interpreters]]
 - [[#magic-handlers][Magic Handlers]]
 - [[#hooks][Hooks]]
-- [[#包定制化][包定制化]]
+- [[#包定制][包定制]]
   - [[#自定义变量][自定义变量]]
   - [[#自定义-faces][自定义 faces]]
 - [[#延迟加载注意事项][延迟加载注意事项]]
 - [[#有关包加载的信息][有关包加载的信息]]
 - [[#条件加载][条件加载]]
-  - [[#preface-之前的条件加载][=:preface= 之前的条件加载]]
+  - [[#preface-之前的条件加载][:preface 之前的条件加载]]
   - [[#按顺序in-sequence加载包][按顺序（in sequence）加载包]]
   - [[#如果依赖项缺失则阻止加载][如果依赖项缺失，则阻止加载]]
-- [[#字节编译byte-compiling你的-emacs][字节编译（Byte-compiling）你的 .emacs]]
-  - [[#组织包在编译时compile-time加载][组织包在编译时（compile-time）加载]]
+- [[#字节编译byte-compiling你的-emacs][字节编译（byte-compiling）你的 .emacs]]
+  - [[#阻止包在编译时compile-time加载][阻止包在编译时（compile-time）加载]]
 - [[#扩展-load-path][扩展 load-path]]
-- [[#在包扩展中捕获错误][在包扩展中捕获错误]]
+- [[#在包扩展期间捕获错误][在包扩展期间捕获错误]]
 - [[#diminishing-和-delighting-次要模式minor-modes][diminishing 和 delighting 次要模式（minor modes）]]
-- [[#包安装][包安装]]
+- [[#包的安装][包的安装]]
   - [[#和其它包管理器一起使用][和其它包管理器一起使用]]
 - [[#收集统计][收集统计]]
 - [[#关键字扩展][关键字扩展]]
   - [[#use-package-ensure-system-package][=(use-package-ensure-system-package)=]]
   - [[#use-package-chords][=(use-package-chords)=]]
-- [[#一些计时结果][一些计时结果]]
+- [[#一些计时timling结果][一些计时（timling）结果]]
 - [[#升级到-2x][升级到 2.x]]
   - [[#init-语义现在是一致的][=:init= 语义现在是一致的]]
   - [[#idle-被移除了][=:idle= 被移除了]]
   - [[#defer-现在一个可选的数字参数][=:defer= 现在一个可选的数字参数]]
-  - [[#add-preface-occurring-before-everything-except-disabled][Add :preface, occurring before everything except :disabled]]
-  - [[#add-functions-for-declaring-functions-to-the-byte-compiler][Add :functions, for declaring functions to the byte-compiler]]
-  - [[#use-packageel-在运行时不在需要][use-package.el 在运行时不在需要]]
+  - [[#添加-preface-发生在-disable-之外的所有事情之前][添加 :preface, 发生在 :disable 之外的所有事情之前]]
+  - [[#添加-functions用于向字节编辑器声明函数][添加 :functions，用于向字节编辑器声明函数]]
+  - [[#use-packageel-在运行时不再需要][use-package.el 在运行时不再需要]]
 
 * 安装 use-package
 
-从 [[https://github.com/jwiegley/use-package][这个]] Github 仓库中 clone 或者从 [[https://melpa.org/][melpa]] 安装（推荐）。
+从 [[https://github.com/jwiegley/use-package][这个]] Github 仓库中 clone 或者从 [[https://elpa.gnu.org/][GNU ELPA]] 安装（推荐）。
 
 * 入门
 
@@ -64,14 +65,14 @@
 #+begin_src emacs-lisp
   ;; This is only needed once, near the top of the file
   (eval-when-compile
-	;; Following line is not needed if use-package.el is in ~/.emacs.d
-	(add-to-list 'load-path "<path where use-package is installed>")
-	(require 'use-package))
+    ;; Following line is not needed if use-package.el is in ~/.emacs.d
+    (add-to-list 'load-path "<path where use-package is installed>")
+    (require 'use-package))
 
   (use-package foo)
 #+end_src
 
-这会加载 =foo= 包，但是只有 =foo= 在你的系统中可用的时候。如果没有的话，会打印警告到 =*Message*= buffer。
+这会加载 =foo= 包，但是只有 =foo= 在你的系统中可用的时候。如果没有的话，会打印告警日志到 =*Message*= buffer。
 
 使用 =:init= 关键字在包加载之前执行代码。它接受一个或者多个形式（forms），直到下一个关键字出现：
 
@@ -81,7 +82,7 @@
 	(setq foo-variable t))
 #+end_src
 
-类似， =:config= 可以在包加载之后执行代码。如果是延迟加载的（请参阅下面的有关自动加载的更多信息），config 中的代码会延迟到自动加载发生之后：
+类似， =:config= 可以在包加载之后执行代码。在延迟加载的场景下（请参阅下面的有关自动加载的更多信息），config 中的代码会延迟到自动加载发生之后：
 
 #+begin_src elisp
   (use-package foo
@@ -91,37 +92,45 @@
 	(foo-mode 1))
 #+end_src
 
-和你想的一样，你可以使用 =:init= 和 =:config= 一起使用。
+如你所想，你可以将 =:init= 和 =:config= 组合使用：
 
 #+begin_src elisp
   (use-package color-moccur
-	:commands (isearch-moccur isearch-all)
-	:bind (("M-s O" . moccur)
-		   :map isearch-mode-map
-		   ("M-o" . isearch-moccur)
-		   ("M-O" . isearch-moccur-all))
-	:init
-	(setq isearch-lazy-highlight t)
-	:config
-	(use-package moccur-edit))
+    :commands (isearch-moccur isearch-all)
+    :bind (("M-s O" . moccur)
+           :map isearch-mode-map
+           ("M-o" . isearch-moccur)
+           ("M-O" . isearch-moccur-all))
+    :init
+    (setq isearch-lazy-highlight t)
+    :config
+    (use-package moccur-edit))
 #+end_src
 
-在这种情况下，我想从 =color-moccur.el= 中自动加载 =isearch-moccur= 和 =isearch-all= 命令，然后进行全局级别和 =isearch-mode-map= 内部绑定（查看下一小结）。
-当实际加载包时（使用了这些命令之一）， =moccur-edit= 也会被加载，以允许编辑 =moccur= buffer。
+这种场景下，我想从 =color-moccur.el= 中自动加载 =isearch-moccur= 和 =isearch-all= 命令，然后进行全局层面和 =isearch-mode-map= 内部绑定（查看下一小结）。
+当包实际被加载之后（通过使用这些命令中的一个）， =moccur-edit= 也会被加载，以允许编辑 =moccur= buffer。
 
-* 键绑定
+如果您自己加载非交互式函数，请使用 =:autoload= ：
 
-加载模块通常要做的另外一件事是给模块中主要的命令绑定快捷键：
+#+begin_src elisp
+  (use-package org-crypt
+    :autoload org-crypt-use-before-save-magic)
+#+end_src
+
+* 快捷键绑定（Key-binding）
+
+在加载模块时通常要做的是将模块的中的主要命令绑定快捷键：
 
 #+begin_src elisp
   (use-package ace-jump-mode
 	:bind ("C-." . ace-jump-mode))
 #+end_src
 
-它做了两件事情：首先，它为 =ace-jump-mode= 命令创建了自动加载（直到你使用它才会被加载 =ace-jump-mode= ）；第二，它绑定了 =C-.= 到 =ace-jump-mode= 命令上。
-加载之后，你可以使用 =M-x describe-personal-keybindings= 来查看你在整个 =.emacs= 中绑定的快捷键。
+它做了两件事情：首先，它为 =ace-jump-mode= 命令创建了自动加载（autoload），延迟到你实际使用此命令时才会 =ace-jump-mode= ；
+第二，它为此命令绑定了快捷键 =C-.= 。
+加载之后，你可以使用 =M-x describe-personal-keybindings= 来查在 =.emacs= 配置中所有的此类快捷键。
 
-实现相同效果的另外一种（更精确）方法：
+另外一种更直接的方法也可以实现相同效果：
 
 #+begin_src elisp
   (use-package ace-jump-mode
@@ -133,7 +142,7 @@
 当你使用 =:commands= 关键字时，它会给这些命令创建自动加载，并延迟模块加载直到使用它们为止。因为 =:init= 总是会运行 -- 即便 =ace-jump-mode= 可能不在你的系统上
 -- 切记 =:init= 中的代码要保证都可以运行成功。
 
-=:bind= 关键字可以接受一个元素，也可以接受一个列表：
+=:bind= 关键字可以接受一个或多个 cons 列表。
 
 #+begin_src elisp
   (use-package hi-lock
@@ -142,10 +151,18 @@
 		   ("M-o w" . highlight-phrase)))
 #+end_src
 
+或者，命令名称可以被替换为 cons =(desc . command)= ，其中 =desc= 是一个描述绑定的 =command= 的字符串：
+
+#+begin_src elisp
+  (use-package avy
+    :bind ("C-:" ("Jump to char" . avy-goto-char)
+           "M-g f" ("Jump to line" . avy-goto-line)))
+#+end_src
+
 =:commands= 通常也支持 symbols 和 symbols 列表。
 
-*注意：* 命令内部的字符串，特殊的键比如 =tab= 或者 =F1=-=Fn= 必须要写在尖括号里面，比如说： ="C-<up>"= 。独立的特殊键（和某些组合）可以写在方括号里中，
-比如： 用 =[tab]= 代替 =<tab>= 。键盘的绑定语法类似于 "kbd" 语法，从 https://www.gnu.org/software/emacs/manual/html_node/emacs/Init-Rebinding.html 获取更多信息。
+*注意：* 命令内部的字符串，特殊的键位比如 =tab= 或者 =F1=-=Fn= 必须要写在尖括号里面，比如 ="C-<up>"= 。独立的特殊键（和某些组合）可以写在方括号里中，
+比如： 用 =[tab]= 代替 =<tab>= 。这种键位绑定语法类似 "kbd" 语法，从 https://www.gnu.org/software/emacs/manual/html_node/emacs/Init-Rebinding.html 获取更多信息。
 
 举例：
 
@@ -157,7 +174,7 @@
 		   ([S-f10] . helm-recentf)))
 #+end_src
 
-此外，使用 =:bind= 和 =bind-key= 重新映射命令可以按照预期工作，因为绑定是向量（vector）时，它直接传递给 =define-key= 。
+此外，使用 =:bind= 和 =bind-key= [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Remapping-Commands.html][重新映射命令]] 可以按照预期工作，因为当绑定是向量（vector）时，它直接传递给 =define-key= 。
 所以下面的例子将重新绑定 =M-q= （原先是 =fill-paragraph= ）到 =unfill-toggle= 。
 
 #+begin_src elisp
@@ -165,13 +182,13 @@
 	:bind ([remap fill-paragraph] . unfill-toggle))
 #+end_src
 
-** 绑定到键映射（keymaps）
+** 绑定快捷键到 keymaps
 
-通常， =:bind= 期望命令是将从给定的包中自动加载的函数。然而，有些命令实际上是键盘映射，直接操作不起作用，因为键盘映射不是一个函数，而且无法使用 Emacs 的
-=autoload= 机制。
+通常， =:bind= 的预期是 command 是将从给定的包中自动加载的函数。但有些命令实际上是 keymap，这么做会不生效，因为 keymap 不是一个函数，
+无法使用 Emacs 的 =autoload= 机制。
 
-为了处理这种情况， =use-package= 提供了一个 =:bind= 特殊的变体叫做 =:bind-keymap= 。唯一的区别是由 =:bind-keymap= 包括的「命令」必须是包中定义的键映射，
-而不是命令函数。它的处理方式是生成自定义代码来加载包含键盘映射的包，然后在你执行按键的时候首次加载，进而将键重新解释为前缀键。
+为了应对这种场景， =use-package= 提供了一个 =:bind= 变体叫 =:bind-keymap= 。唯一的不同是由 =:bind-keymap= 对应的“命令”必须是包中定义的 keymaps，
+而不是 commmand 函数。它的处理方式是生成自定义代码来加载包含键盘映射的包，然后在你执行按键的时候首次加载，进而将键重新解释为前缀快捷键：
 
 比如：
 
@@ -181,9 +198,9 @@
 	("C-c p" . projectile-command-map))
 #+end_src
 
-** 在本地键映射中绑定
+** 绑定到局部 keymaps
 
-与绑定到键映射不同，它绑定本地键映射的中的一个键，而且只有在包已经被加载之后才存在。 =use-package= 通过 =:map= 修饰符来支持它，将本地的键映射绑定到：
+与绑定到 keymap 不同，它绑定局部 keymap 中的一个快捷键，而且只有在包已经被加载之后才存在。 =use-package= 通过 =:map= 修饰符来支持它，将局部 keymap 绑定到：
 
 #+begin_src elisp
   (use-package helm
@@ -191,9 +208,9 @@
 				("C-c h" . helm-execute-persistent-action)))
 #+end_src
 
-该语句会等到 =helm= 被加载的时候，然后绑定 =C-c h= 到 Helm 的本地键映射中的  =helm-execute-persistent-action= ， =helm-mode-map= 。
+该语句会等到 =helm= 被加载的时候，绑定 =C-c h= 到 Helm 的局部 =helm-mode-map= 中的  =helm-execute-persistent-action= 。
 
-=:map= 可以使用多次，在第一次使用 =:map= 之前的任何绑定都会认为是全局绑定。
+=:map= 可以指定多次，发生在 =:map= 之前的任何绑定都会认为是全局 keymap：
 
 #+begin_src elisp
   (use-package term
@@ -207,11 +224,76 @@
 		   ("M-n" . term-send-down)))
 #+end_src
 
+*** 绑定到 repeat-maps
+
+在局部 keymap 中有一个绑定特例是当该 keymap 使用为 =repeat-mode= 。这些 keymaps 通常专门为此定义。使用 =:repeat-map= 关键字，
+并为其定义的 map 设定一个名称，然后（默认情况下）讲每个绑定到此 map 的命令设置 =repeat-map= 属性。
+
+下面的代码创建了一个称为 =git-gutter+-repeat-map= 的 keymap，在其中进行四个绑定，然后为每个命令（ =git-gutter+-next-hunk=
+=git-gutter+-previous-hunk= =git-gutter+-stage-hunks =git-gutter+-revert-hunk== ）都设置了 =repeat-map= 属性。
+
+#+begin_src elisp
+  (use-package git-gutter+
+    :bind
+    (:repeat-map git-gutter+-repeat-map
+     ("n" . git-gutter+-next-hunk)
+     ("p" . git-gutter+-previous-hunk)
+     ("s" . git-gutter+-stage-hunks)
+     ("r" . git-gutter+-revert-hunk)))
+#+end_src
+
+在 =:repeat-map= 范围内使用 =:exit= 来停止 =repeat-map= 属性设置。在 repeat map 中使用该命令，repeat map 将不再可用。
+这对于在一系列的重复命令尾部使用很有用：
+
+#+begin_src elisp
+  (use-package git-gutter+
+    :bind
+    (:repeat-map my/git-gutter+-repeat-map
+     ("n" . git-gutter+-next-hunk)
+     ("p" . git-gutter+-previous-hunk)
+     ("s" . git-gutter+-stage-hunks)
+     ("r" . git-gutter+-revert-hunk)
+     :exit
+     ("c" . magit-commit-create)
+     ("C" . magit-commit)
+     ("b" . magit-blame)))
+#+end_src
+
+指定 =:continue= 命令会 /强制/ 设置 =repeat-map= 属性（就跟没指定 =:exit= 一样），所以下面两个片段是等价的：
+
+#+begin_src elisp
+  (use-package git-gutter+
+    :bind
+    (:repeat-map my/git-gutter+-repeat-map
+     ("n" . git-gutter+-next-hunk)
+     ("p" . git-gutter+-previous-hunk)
+     ("s" . git-gutter+-stage-hunks)
+     ("r" . git-gutter+-revert-hunk)
+     :exit
+     ("c" . magit-commit-create)
+     ("C" . magit-commit)
+     ("b" . magit-blame)))
+#+end_src
+
+#+begin_src elisp
+  (use-package git-gutter+
+    :bind
+    (:repeat-map my/git-gutter+-repeat-map
+     :exit
+     ("c" . magit-commit-create)
+     ("C" . magit-commit)
+     ("b" . magit-blame)
+     :continue
+     ("n" . git-gutter+-next-hunk)
+     ("p" . git-gutter+-previous-hunk)
+     ("s" . git-gutter+-stage-hunks)
+     ("r" . git-gutter+-revert-hunk)))
+#+end_src
+
 * Modes 和 interpreters
 
-
 类似 =:bind= ，你可以使用 =:mode= 和 =:interpreter= 建立与 =auto-mode-alist= 和 =interpreter-mode-alist= 中的变量内部延迟绑定。
-每个关键字的说明符都是可以元素，列表，字符串或者正则表达式。
+每个关键字的说明符都是可以 cons，cons 列表，字符串或者正则表达式。
 
 #+begin_src elisp
   (use-package ruby-mode
@@ -244,7 +326,7 @@
 
 * Magic Handlers
 
-与 =:mode= 和 =:interpreter= 类似，你也可以使用 =:magic= 和 =:magic-fallback= 来实现如果文件的开头和给定的正则表达式匹配，则引发某些功能运行。
+与 =:mode= 和 =:interpreter= 类似，你也可以使用 =:magic= 和 =:magic-fallback= 来实现如果文件的开头和给定的正则表达式匹配，则触发某些功能运行。
 两者之间的区别在于 =:magic-fallback= 比 =:mode= 的优先级低。比如：
 
 #+begin_src elisp
@@ -254,7 +336,6 @@
 	:config
 	(pdf-tools-install :no-query))
 #+end_src
-
 
 这会为 =pdf-view-mode= 注册一个自动加载命令，延迟加载 =pdf-tools= 。如果 buffer 开头与字符串 ="%PDF"= 匹配，运行 =pdf-view-mode= 。
 
@@ -295,7 +376,7 @@
 	(add-hook 'text-mode-hook #'ace-jump-mode))
 #+end_src
 
-当使用 =:hook= 时要忽略 "-hook" 后缀，默认情况会自动添加上。比如下面的代码不会生效，因为它实际上会扩展成 =prog-mode-hook-hook= 并不存在：
+当使用 =:hook= 时要忽略 "-hook" 后缀，默认情况会自动追加。比如下面的代码不会生效，因为它实际上会扩展成 =prog-mode-hook-hook= 并不存在：
 
 #+begin_src elisp
   ;; DOES NOT WORK
@@ -305,14 +386,14 @@
 
 如果你不喜欢这种行为的话，设置 =use-package-hook-name-suffix= 成 nil。默认情况下，它的值是 "-hook"。
 
-使用 =:hook= 和 =:bind=, =:mode=, =:interpreter= 等等。被 hook 的隐式读取为 =:commands= （意味着它们将为该模块建立交互式 =autoload= 定义，
+使用 =:hook= 与 =:bind=, =:mode=, =:interpreter= 等，会导致被 hook 的函数隐式读取为 =:commands= （意味着它们将为该模块建立交互式 =autoload= 定义，
 如果尚未定义函数的话），因为 =:defer t= 也被 =:hook= 隐含了。
 
-* 包定制化
+* 包定制
 
 ** 自定义变量
 
-=:custom= 关键字允许包自定义变量。
+=:custom= 关键字允许自定义包的自定义变量。
 
 #+begin_src elisp
   (use-package comint
@@ -321,27 +402,47 @@
 	(comint-prompt-read-only t "Make the prompt read only."))
 #+end_src
 
-其中的文档字符串不是必需的。
+上面的文档字符串不强制。
 
-*注意：* 这些适用于想要在 use-packages 声明的地方自定义包的人。功能上，相比与在 =:config= 块中使用 =setq= 的优势在于：在分配值是，使用 custom 可能会执行代码。
-如果你使用 =M-x customize-option= 并保存在设置文件中，你可能不希望使用这个选项。
+*注意：* 这些仅适用于想要在 use-packages 声明的地方保留自定义能力的人。功能上，相比与在 =:config= 块中使用 =setq= 的唯一优势在于：
+自定义可能在分配值时执行代码。
+
+*注意：* 这些自定义值 *不会* 保存在 Emacs 的 =custom-file= 中，因此你要么使用 =:custom= 选项 *或者* 使用 =M-x customize-option=
+（它会将自定义值保存在 Emacs 的 =custom-file= 中），不要同时使用两者。
 
 ** 自定义 faces
 
-=custom-face= 关键字允许自定义包的 faces。
+=custom-face= 关键字允许自定义包中的 faces。
 
 #+begin_src elisp
   (use-package eruby-mode
-	:custom-face
-	(eruby-standard-face ((t (:slant italic)))))
+    :custom-face
+    (eruby-standard-face ((t (:slant italic)))))
+
+  (use-package example
+    :custom-face
+    (example-1-face ((t (:foreground "LightPink"))))
+    (example-2-face ((t (:foreground "LightGreen"))) face-defspec-spec))
+
+  (use-package zenburn-theme
+    :preface
+    (setq my/zenburn-colors-alist
+          '((fg . "#DCDCCC") (bg . "#1C1C1C") (cyan . "#93E0E3")))
+    :custom-face
+    (region ((t (:background ,(alist-get my/zenburn-colors-alist 'cyan)))))
+    :config
+    (load-theme 'zenburn t))
 #+end_src
 
 * 延迟加载注意事项
 
-绝大多数情况下，你都不需要手动设置 =:defer t= 。当使用 =:bind= =:mode= 或者 =:interpreter= 都已经隐含了。通常，只有知道一些包会在某些情况下需要时间加载，
+=:commands= 等关键字提供了在特定事件发生时导致包加载的“触发器”。如果 =use-package= 无法确定是否有任何触发器的声明，它会在 Emacs 立即加载，
+除非你指定了 =:defer t= 。你可以使用 =:demand t= 覆盖触发器的存在，让它强制立即加载。比如 =:hook= 表示当指定的 hook 运行时才触发。
+
+绝大多数情况下，你都不需要手动设置 =:defer t= ，因为使用 =:bind= =:mode= 或者 =:interpreter= 都已经隐含了。通常，只有知道一些包会在某些情况下需要时间加载，
 你才需要指定 =:defer= ，因此，即使 =use-package= 没有为你创建任何自动加载，你也可以设置延迟加载。
 
-你可以使用 =:demand= 关键字覆盖包的延迟，这种情况下，即便你使用了 =:bind= ， =:demand= 也会立即强制加载，并且不会为绑定键建立自动加载。
+你可以使用 =:demand= 关键字覆盖包的延迟，即便你使用了 =:bind= ， =:demand= 也会强制立即加载，而不是等快捷键绑定建立时自动加载。
 
 * 有关包加载的信息
 
@@ -349,8 +450,8 @@
 对于配置或者 =:config= 块执行时间超过 0.1 秒，也会出现相同的情况。通常情况，你应该保持 =:init= 尽可能的简单，而把更多的配置放到 =:config= 块中。
 这样，延迟加载可以让你的 Emacs 启动更快。
 
-另外，如果在包的初始化或者配置过程中出现了错误，不会阻止你的 Emacs 加载。相反，错误会被包捕获，然后报告给特殊的 =*Warning*= 弹出 buffer，以便你使用
-功能正常的 Emacs 中调试。
+另外，如果在包的初始化或者配置过程中出现了错误，不会阻止你的 Emacs 加载。相反，错误会被包捕获，然后报告给特殊的 =*Warning*= 弹出 buffer，
+以便你使用功能正常的 Emacs 中调试。
 
 * 条件加载
 
@@ -376,7 +477,7 @@
 	(exec-path-from-shell-initialize))
 #+end_src
 
-=:disabled= 关键字可以关闭遇到问题的模块，或者对当前不使用的模块阻止加载。
+=:disabled= 关键字可以关闭遇到困难的模块，或者停止加载你当前未使用的内容：
 
 #+begin_src elisp
   (use-package ess-site
@@ -384,26 +485,27 @@
 	:commands R)
 #+end_src
 
-当字节编译（ =byte-compiling= ）你的 =.emacs= 文件，在声明中禁用（disabled）将从输出中完全省略，可以加快启动时间。
+当字节编译（byte-compiling）你的 =.emacs= 文件的时候，在输出中完全省略了禁用声明（的包），以加快启动时间。
 
-*注意：* =:when= 是 =:if= 的别名，而且 =:unless foo= 等价于 =:if (not foo)= 。比如说，下面的 =:ensure= 也会在 Mac 系统中停止工作：
+*注意：* =:when= 是 =:if= 的别名，而且 =:unless foo= 等价于 =:if (not foo)= 。
+
+** :preface 之前的条件加载
+
+如果你需要对 use-package form 进行条件判断，确保它出现在 =:preface= 执行之前，简单的方式是用 =:when= 把 use-package 包裹起来。
+比如，下面的例子也会在 Mac 系统中停止 =:ensure= ：
 
 #+begin_src elisp
   (when (memq window-system '(mac ns))
-	(use-package exec-path-from-shell
-	  :ensure t
-	  :config
-	  (exec-path-from-shell-initialize)))
+    (use-package exec-path-from-shell
+      :ensure t
+      :config
+      (exec-path-from-shell-initi
 #+end_src
-
-** =:preface= 之前的条件加载
-
-如果你需要对 use-package form 进行条件判断，确保它出现在 =:preface= 执行之前，简单的使用 =:when= form 即可。
 
 ** 按顺序（in sequence）加载包
 
-有时需要在一个包加载完之后才会加载另外一个包，因为那个时候变量或者函数才在范围内。这种情况可以使用 =:after= 关键字来实现，它允许在满足确定条件之后然后再加载。
-比如：
+有时需要在一个包加载完之后才会加载另外一个包，因为某些变量或函数在那之前不在作用域内。这种情况可以使用 =:after= 关键字来实现，
+该关键字允许在满足确定条件后再加载。比如：
 
 #+begin_src elisp
   (use-package hydra
@@ -416,10 +518,11 @@
 	:after (ivy hydra))
 #+end_src
 
-这种情况下，所有的软件包都是按找出现的顺序加载的，因此 =:after= 的使用不是强制必要的。
-但是，使用了之后，上面的代码变的与顺序无关了，而对你 init 文件本身没有显式的依赖。
+上面的例子中，所有的包都是按找出现的顺序加载的，因此 =:after= 的使用不是强制需要的。但是，使用 =:after= 之后，上面的代码就于与顺序无关了，
+与原始的 init 文件中的顺序没有了隐式的依赖。
 
-默认情况下， =:after (foo bar)= 与 =:after (:all foo bar)= 相同，意味着给定的加载包必须要等到 =foo= 和 =bar= 全部加载之后。这是其它的可能情况：
+默认情况下， =:after (foo bar)= 与 =:after (:all foo bar)= 相同，意味着给定的加载包必须要等到 =foo= 和 =bar= 全部加载之后。
+下面是一些其他的可能性：
 
 #+begin_src elisp
   :after (foo bar)
@@ -432,13 +535,13 @@
 当你使用嵌套的选择器时，比如 =(:any (:all foo bar) (:all baz quux))= ，意味着同时加载 =foo= 和 =bar= 或者 =baz= 和 =quux= 。
 
 *注意：* 如果你设置了 =use-package-always-defer= 为 =t= ，并且使用了 =:after= 关键字，那么你需要指定包的加载方式：比如，使用 =:bind= 。
-如果你没有使用注册自动加载的机制之一，比如 =:bind= 或者 =:hook= ，而且您的包管理器没有提供自动加载功能，如果没有添加 =:demand t= 到这些声明中，
-那么这些包可能永远不会被加载。
+如果你没有使用注册自动加载的机制之一，比如 =:bind= 或者 =:hook= ，而且您的包管理器没有提供自动加载功能，并且没有添加 =:demand t= 到这些声明中，
+那么这些包永远不会被加载。
 
 ** 如果依赖项缺失，则阻止加载
 
-虽然 =after= 关键字可以延迟加载直到依赖项加载，如果 =use-package= 声明的包不可用永远不要加载依赖包使用 =:requires= 会更简单一些。
-在这种情况下，foo 的「可用」表示的是 =(featurep 'foo)= 的值是非 nil 值。比如：
+虽然 =after= 关键字可以延迟加载直到依赖项加载，但遇到 =use-package= 声明时有依赖项不可用，那么简单的 =:requires= 关键字根本不会加载包。
+这种情况下，“可用”意味着如果如果 =(featurep 'foo)= 的计算结果为非 nil 值，则 foo 可用。比如：
 
 #+begin_src elisp
   (use-package abbrev
@@ -452,7 +555,7 @@
 	:if (featurep 'foo))
 #+end_src
 
-你可以指定依赖列表：
+为了方便，你可以指定依赖列表：
 
 #+begin_src elisp
   (use-package abbrev
@@ -461,11 +564,11 @@
 
 对于更复杂的逻辑，比如说 =:after= 支持的，只需要使用 =:if= 合适的 Lisp 表达式即可。
 
-* 字节编译（Byte-compiling）你的 .emacs
+* 字节编译（byte-compiling）你的 .emacs
 
 =use-package= 的另一个特性是 =.emacs= 被字节编译时总加载它可以加载的每一个文件。这会有助于消除有关未知变量和函数的虚假警告。
 
-但是，有时候这样还不够。有些时候，出于字节编译的目的，使用 =:defines= 和 =:functions= 关键字仅用来引入虚拟变量和函数声明。
+但是，有时候这样还不够。有些时候，出于字节编译的目的，使用 =:defines= 和 =:functions= 关键字仅用来引入虚拟变量和函数声明：
 
 #+begin_src elisp
   (use-package texinfo
@@ -490,10 +593,11 @@
 	(add-hook 'ruby-mode-hook 'my-ruby-mode-hook))
 #+end_src
 
-** 组织包在编译时（compile-time）加载
+** 阻止包在编译时（compile-time）加载
 
-通常， =use-package= 在编译配置之前，在编译时加载每个包，确保必要的标识符在范围内，以满足字节编译器的要求。有时这样会引起问题，由于包可能有特殊的加载需求，
-你要使用 =use-pacakge= 的所有操作就是将配置添加到 =eval-after-load= hook。这种情况下，使用 =:no-require= 关键字：
+通常， =use-package= 在编译配置之前，在编译时加载每个包，确保必要的标识符都在满足字节编译器的范围内。
+有时这样会引起问题，由于包可能有特殊的加载需求，你要使用 =use-pacakge= 的所有操作就是将配置添加到 =eval-after-load= hook。
+这种情况下，使用 =:no-require= 关键字：
 
 #+begin_src elisp
   (use-package foo
@@ -504,8 +608,8 @@
 
 * 扩展 load-path
 
-如果你想将目录添加到 =load-path= 进行加载，使用 =:load-path= 。参数是一个符号，一个函数，一个字符串或者一个字符串列表。如果是相对路径，
-会在 =user-package-directory= 中扩展：
+如果一个包为了加载需要一个目录添加到 =load-path= ，使用 =:load-path= 。它的参数是一个符号，一个函数，一个字符串或者一个字符串列表。
+如果是相对路径，会基于 =user-package-directory= 扩展：
 
 #+begin_src elisp
   (use-package ess-site
@@ -513,8 +617,8 @@
 	:commands R)
 #+end_src
 
-*注意：* 当使用符号或者函数提供动态的路径列表时，你必须要将次定义告知字节编译器，以便在字节编译时可用。这是通过使用特殊形式的 =eval-and-compile= （
-与 =eval-when-compile= 相反）来完成的。进一步，这个值是在编译器期间确定下来的，为了避免在每次启动时再次查找相同的信息：
+*注意：* 当使用符号（symbol）或者函数提供动态的路径列表时，你必须要将此定义告知字节编译器，以便在字节编译时可用。
+这是通过使用特殊形式的 =eval-and-compile= （与 =eval-when-compile= 相反）来完成的。进一步，这个值是在编译器期间确定下来的，为了避免在每次启动时再次查找相同的信息：
 
 #+begin_src elisp
   (eval-and-compile
@@ -526,13 +630,13 @@
 	:commands R)
 #+end_src
 
-* 在包扩展中捕获错误
+* 在包扩展期间捕获错误
 
 默认情况下，如果 =use-package-expand-minimally= 是 nil（默认值），use-package 将尝试捕捉并报告在你的 init 文件中扩展使用包声明期间发生的错误。
 设置 =use-package-expand-minimally= 为 =t= 完全禁用此检查。
 
-可以使用 =:catch= 关键字来本地覆盖此行为，设置为 =t= 或者 =nil= ，在加载时启动或者禁用捕获错误。它也可以是带有两个参数的函数：遇到错误时正在处理的关键字，
-和错误对象（由 =condition-case= 生成）。比如：
+这种行为可以被局部使用 =:catch= 来覆盖。设置为 =t= 或者 =nil= ，在加载时启动或者禁用捕获错误。它也可以是带有两个参数的函数：
+遇到错误时正在处理的关键字，和错误对象（由 =condition-case= 生成）。比如：
 
 #+begin_src elisp
   (use-package example
@@ -598,10 +702,10 @@ oops
 	(visual-line-mode))
 #+end_src
 
-* 包安装
+* 包的安装
 
-你可以使用 =use-package= 通过 =package.el= 从 ELPA 加载包。如果你在多台计算机之间共享 =.emacs= ，这会非常有用；在你的 =.emacs= 中声明之后，相关的包会自动下载。
-=:ensure= 关键字会让包自动安装（如果系统上不存在的话）。
+你可以使用 =use-package= 通过 =package.el= 从 ELPA 加载包。如果你在多台计算机之间共享 =.emacs= ，这会非常有用；
+一旦在你的 =.emacs= 中声明，相关的包会自动下载。如果系统中不存在， =:ensure= 关键字会让包自动安装。
 
 #+begin_src elisp
   (use-package magit
@@ -622,7 +726,7 @@ oops
   (setq use-package-always-ensure t)
 #+end_src
 
-*注意：* =:ensure= 在包不存在时会自动安装包，但它并不能保持最新。如果你希望你的包自动升级，一个选择是使用 [[https://github.com/rranelli/auto-package-update.el][auto-package-update]] ，类似：
+*注意：* =:ensure= 在包不存在时会自动安装包，但它并不能保持最新。如果你希望你的包自动升级，一个选项是使用 [[https://github.com/rranelli/auto-package-update.el][auto-package-update]] ，类似：
 
 #+begin_src elisp
   (use-package auto-package-update
@@ -632,15 +736,16 @@ oops
 	(auto-package-update-maybe))
 #+end_src
 
-最后，在 Emacs 24.4 或者更高的版本上运行时，use-package 可以将包固定到特定的 archive，允许你混用和匹配来自不同 archive 的包。大部分场景都是从 =melpa-stable=
-和 =gnu= archive 中选择软件包，但是要使用来自 =melpa= 中的包，当你需要使用比 =stable= archives 可用版本更新的版本时，这也是一种使用场景。
+最后，在 Emacs 24.4 或者更高的版本上运行时，use-package 可以将包固定（pin）到特定的 archive，允许你混用和匹配来自不同 archive 的包。
+大部分场景都是从 =melpa-stable= 和 =gnu= archive 中选择软件包，但是要使用来自 =melpa= 中的包，当你需要使用比 =stable= archives
+可用版本更新的版本时，这也是一种使用场景。
 
 默认情况下 =package.el= 由于版本控制的原因 =(> evil-20141208.623 evil-1.0.9)= 相比 =melpa-stable= 更喜欢 =mepla= ，因此即使你想只有一个包来自 =melpa= ，
-你需要把所有非 =melpa= 的包都要从这个 archive 下载。如果这个让你感到烦恼，你可以设置 =use-package-always-pin= 设置为默认值。
+你需要把所有非 =melpa= 的包都要从这个 archive 下载。如果这个让你感到烦恼，你可以未 =use-package-always-pin= 设置一个默认值。
 
-如果要手动保持包更新，而忽略上游更新，你可以将它固定为 =manual= ，只要没有该名称的存储库，就可以使用。
+如果要手动保持包更新，而忽略上游更新，你可以将它固定（pin）为 =manual= ，只要没有该名称的存储库，就可以使用。
 
-如果你固定的 archive 没有出现在 =package-archives= 的配置列表中， =use-package= 会抛出一个错误（除了上面提到的 =:manual= ）：
+如果你固定（pin）的 archive 没有出现在 =package-archives= 的配置列表中， =use-package= 会抛出一个错误（除了上面提到的 =:manual= ）：
 
 #+begin_src
 Archive 'foo' requested for package 'bar' is not available.
@@ -682,7 +787,7 @@ Archive 'foo' requested for package 'bar' is not available.
 如果你想查看已经加载包数量，它们到达了什么初始化阶段，它们花了多少时间（大约），在加载 =use-package= 之后打开 =use-package-compute-statistics= （在
 任何使用 =use-package= forms 之前），然后运行命令 =M-x use-package-report= 查看结果。显示的 buffer 是一个列表，你可以在对应的列上使用 =S= 进行排序。
 
-* TODO 关键字扩展
+* 关键字扩展
 
 从 2.0 版本开始， =use-package= 基于可扩展的框架，使得包的作者添加新的关键字或者修改现有关键字变的很轻松。
 
@@ -690,7 +795,7 @@ Archive 'foo' requested for package 'bar' is not available.
 
 ** =(use-package-ensure-system-package)=
 
-=:ensure-system-package=  允许你确保系统的二进制文件和你的包声明一起存在。
+=:ensure-system-package= 允许你确保系统的二进制文件和你的包声明一起存在。
 
 首先，你希望保证 =exec-path= 能够识别你已经安装的二进制包的名称，[[https://github.com/purcell/exec-path-from-shell][exec-path-from-shell]] 是一个好的解决办法。
 
@@ -708,8 +813,8 @@ Archive 'foo' requested for package 'bar' is not available.
 	:ensure-system-package rg)
 #+end_src
 
-它会期望全局的二进制 =rg= 存在。如果不存在的话，它会使用你的系统包管理器（使用 system-packages）尝试异步安装同名的二进制。比如，macOS 用户可能会调用：
-=brew install rg= 。
+它会期望全局的二进制 =rg= 存在。如果不存在的话，它会使用你的系统包管理器（使用 system-packages）尝试异步安装同名的二进制。
+比如，macOS 用户可能会调用： =brew install rg= 。
 
 如果包名字和二进制名字不同，你可以用 =(binary . package-name)= 的格式，即：
 
@@ -756,9 +861,9 @@ Archive 'foo' requested for package 'bar' is not available.
 
 ** =(use-package-chords)=
 
-=:chords= 关键字允许你为 =use-paackage= 定义 =key-chord= 绑定，与 =:bind= 关键字类似。
+=:chords= 关键字允许你为 =use-package= 定义 =[[https://www.emacswiki.org/emacs/key-chord.el][key-chord]]= 绑定，与 =:bind= 关键字类似。
 
-打开扩展：
+启动扩展：
 
 #+begin_src elisp
   (use-package use-package-chords
@@ -775,14 +880,64 @@ Archive 'foo' requested for package 'bar' is not available.
 			 ("jl" . ace-jump-line-mode)))
 #+end_src
 
-*** TODO 如何创建扩展
+*** 如何创建扩展
 
-/这部分我不怎么关心.../
+**** 第一步：添加一个关键字
 
-* 一些计时结果
+第一步在 =use-package-keywords= 合适的位置添加你的关键字。这个列表决定了扩展代码中的执行顺序。你永远不要修改这个顺序，
+但它为你提供了一个框架，你可以在其中决定何时触发你的关键字。
 
-在我的 iMac Retina 上，Emacs 24.4 的 "Mac port" 变种，大约配置了 218 个包（几乎所有的都是懒加载），加载了 0.57 秒。但是，除了第一次使用 Emacs 时（由于自动加载）
-，我没有损失任何功能。由于我对许多软件包使用了空闲加载，因此通常可以整体上减少延迟感知。
+**** 第二步：创建一个 normalizer
+
+通过定义以关键字命名的函数来为关键字定义 normalizer，例如：
+
+#+begin_src elisp
+  (defun use-package-normalize/:pin (name-symbol keyword args)
+    (use-package-only-one (symbol-name keyword) args
+      (lambda (label arg)
+        (cond
+         ((stringp arg) arg)
+         ((symbolp arg) (symbol-name arg))
+         (t
+          (use-package-error
+           ":pin wants an archive name (a string)"))))))
+#+end_src
+
+normalizer 的工作是获取一参数列表（可能是 nil），并将其转换为应该出现在 =use-package= 使用的最终属性列表中的单个参数（仍旧是个列表）。
+
+**** 第三步：创建一个处理器
+
+一旦你有一个 normalizer，你必须要为关键字创建一个处理器：
+
+#+begin_src elisp
+  (defun use-package-handler/:pin (name-symbol keyword archive-name rest state)
+    (let ((body (use-package-process-keywords name-symbol rest state)))
+      ;; This happens at macro expansion time, not when the expanded code is
+      ;; compiled or evaluated.
+      (if (null archive-name)
+          body
+        (use-package-pin-package name-symbol archive-name)
+        (use-package-concat
+         body
+         `((push '(,name-symbol . ,archive-name)
+                 package-pinned-packages))))))
+#+end_src
+
+处理器有两种方式来影响关键字：首先，它可以递归处理剩余关键字之前修改 =state= plist，影响关注状态的关键字（一个例子是 =:deferred=
+关键字，不要与 =:defer= 混淆）。然后，一旦处理了剩余的关键字并返回了它们的结果 form，处理程序就可以操纵、扩展或直接忽略这些 forms。
+
+每个处理器的任务是返回 /一个 forms 列表/ 来表示要插入的代码。它不需要一个 =progn= 列表，因为这是在其他地方自动处理的。
+因此，在代码主体之前或者之后使用 =use-package-concat= 添加新功能的用法很常见，作为使用包扩展的结果，只发出必要的最少代码。
+
+**** 第四步：测试
+
+在关键字插入到 =use-package-keywords= 之后，以及 normalizer 和处理器定义之后，你现在可以通过查看关键字的使用来测试它。
+为此，使用 =M-x pp-macroexpand-last-sexp= 并将光标设置在 =(use-package ...)= 表达式之后。
+
+* 一些计时（timling）结果
+
+在我的 iMac Retina 上，Emacs 24.4 的 "Mac port" 变种，大约配置了 218 个包（几乎所有的都是懒加载），加载了 0.57 秒。
+但是，除了第一次使用 Emacs 时（由于自动加载），我没有损失任何功能。由于我对许多软件包使用了空闲加载，因此通常可以整体上减少延迟感知。
 
 在 Linux 上，相同的配置用了 0.32 秒。
 
@@ -803,8 +958,8 @@ time emacs -l init.elc -batch --eval '(message "Hello, world!")'
 
 也因为 =:init= 和 =:config= 现在意味着 "之前" 和 "之后"，所以 =:pre-= 和 =:post-= 关键字消失了，它们也不再被需要了。
 
-最后，即使存在包配置失败的情况，也尽力让你的 Emacs 启动。因此，在此更改之后，要检查你的 =*Message= buffer。最有可能的是，在几个例子中使用 =:init= ，但应该
-跟更多地方使用 =:config= 。
+最后，即使存在包配置失败的情况，也尽力让你的 Emacs 启动。因此，在此更改之后，要检查你的 =*Message= buffer。最有可能的是，
+在几个例子中使用 =:init= ，但应该跟更多地方使用 =:config= 。
 
 ** =:idle= 被移除了
 
@@ -853,9 +1008,18 @@ time emacs -l init.elc -batch --eval '(message "Hello, world!")'
 	(back-button-mode 1))
 #+end_src
 
-** TODO Add :preface, occurring before everything except :disabled
-** TODO Add :functions, for declaring functions to the byte-compiler
-** use-package.el 在运行时不在需要
+** 添加 :preface, 发生在 :disable 之外的所有事情之前
+
+=:preface= 可用于建立函数和变量定义 1）让字节编译器开心（它不会抱怨定义未知的函数，因为他们在保护块中），2）允许您定义在 =:if= 测试中使用的代码。
+
+*注意：* =:preface= 中指定的任何内容都会在加载时和字节编译时执行，为了确保 Lisp 求职器和字节编译器能看到定义，所以你应该避免
+在你的前沿中产生任何副作用，并将它限制在符号生命和定义上。
+
+** 添加 :functions，用于向字节编辑器声明函数
+
+=:defines= 是为变量的， =:functions= 是为函数的。
+
+** use-package.el 在运行时不再需要
 
 也就是说你可以将以下内容放在 Emacs 的顶部，进一步减少加载时间：
 
